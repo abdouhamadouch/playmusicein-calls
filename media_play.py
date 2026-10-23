@@ -213,12 +213,14 @@ async def _require_admin(update, context) -> bool:
     return False
 
 
-def _buttons(chat_id: int):
+def _buttons(chat_id: int, paused: bool = False):
+    transport = (
+        [InlineKeyboardButton("▶️ Resume", callback_data=f"mp:{chat_id}:resume")]
+        if paused
+        else [InlineKeyboardButton("⏸ Pause", callback_data=f"mp:{chat_id}:pause")]
+    )
     return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("⏸ Pause", callback_data=f"mp:{chat_id}:pause"),
-            InlineKeyboardButton("▶️ Resume", callback_data=f"mp:{chat_id}:resume"),
-        ],
+        transport,
         [
             InlineKeyboardButton("⏪ -10", callback_data=f"mp:{chat_id}:back10"),
             InlineKeyboardButton("⏩ +10", callback_data=f"mp:{chat_id}:forward10"),
@@ -956,7 +958,7 @@ async def pause_handler(update, context):
                 chat_id,
                 "⏸ <b>Paused</b>\n\n▶️ اضغط Resume للمتابعة.",
                 s.current.thread_id if s.current else None,
-                _buttons(chat_id),
+                _buttons(chat_id, paused=True),
             )
         except Exception as exc:
             log.exception("MEDIA PAUSE FAILED")
@@ -990,7 +992,7 @@ async def resume_handler(update, context):
                 chat_id,
                 "▶️ <b>Resumed</b>",
                 s.current.thread_id if s.current else None,
-                _buttons(chat_id),
+                _buttons(chat_id, paused=False),
             )
         except Exception as exc:
             log.exception("MEDIA RESUME FAILED")
@@ -1161,13 +1163,12 @@ async def _callback_handler(update, context):
     if not query:
         return
 
-    try:
-        await query.answer()
-    except Exception:
-        pass
-
     parts = (query.data or "").split(":")
     if len(parts) != 3 or parts[0] != "mp":
+        try:
+            await query.answer()
+        except Exception:
+            pass
         return
 
     try:
@@ -1184,6 +1185,11 @@ async def _callback_handler(update, context):
         except Exception:
             pass
         return
+
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     action = parts[2]
 
