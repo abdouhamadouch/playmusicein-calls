@@ -440,7 +440,7 @@ async def _download_url(item: MediaItem) -> str:
 
     out_dir = TEMP_ROOT / "urls"
     out_dir.mkdir(parents=True, exist_ok=True)
-    prefix = f"yt_{item.chat_id}_{item.message_id}_{abs(hash(item.source_url)) % 10000000}"
+    prefix = f"url_{item.chat_id}_{item.message_id}_{abs(hash(item.source_url)) % 10000000}"
     output = out_dir / f"{prefix}.%(ext)s"
 
     opts = {
@@ -483,7 +483,7 @@ async def _download_url(item: MediaItem) -> str:
             raise RuntimeError("yt-dlp finished but the downloaded video file was not found.")
 
     path = await asyncio.wait_for(asyncio.to_thread(_run), DOWNLOAD_TIMEOUT)
-    log.info("MEDIA YOUTUBE DOWNLOAD: %s", path)
+    log.info("MEDIA URL DOWNLOAD: %s", path)
     return path
 
 
@@ -834,11 +834,11 @@ async def _enqueue(update: Update, context, mode="auto"):
     source_url = _url_from_command(update)
 
     if source_url:
-        kind, title = "video", "YouTube video"
+        kind, title = "video", "Video URL"
         source_message_id = message.message_id
     else:
         if source is None or media is None:
-            await message.reply_text("🎵 رد على صوت أو 🎬 فيديو، أو استعمل /play أو /video مع رابط YouTube.")
+            await message.reply_text("🎵 رد على صوت أو 🎬 فيديو، أو استعمل /play أو /video مع رابط فيديو مدعوم.")
             return
         kind, title = media
         source_message_id = source.message_id
