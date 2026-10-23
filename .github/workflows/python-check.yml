@@ -1,4 +1,4 @@
-name: Python syntax check
+name: Python checks
 
 on:
   push:
@@ -7,12 +7,18 @@ on:
     branches: [main]
 
 jobs:
-  compile:
+  checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+      - name: Install runtime dependencies
+        run: python -m pip install -r requirements.txt
       - name: Compile Python modules
         run: python -m py_compile bot.py media_play.py
+      - name: Test URL recognition and local-address rejection
+        run: python -m unittest discover -s tests -v
+      - name: Smoke-test PyTgCalls imports
+        run: python -c "import media_play; assert media_play.PyTgCalls is not None; assert media_play.MediaStream is not None; print('PyTgCalls imports OK')"
