@@ -229,7 +229,7 @@ def _buttons(chat_id: int, paused: bool = False):
         ],
         [
             InlineKeyboardButton("⏭ Skip", callback_data=f"mp:{chat_id}:skip"),
-            InlineKeyboardButton("⏹ Stop", callback_data=f"mp:{chat_id}:stop"),
+            InlineKeyboardButton("⏹ إنهاء / Stop", callback_data=f"mp:{chat_id}:stop"),
         ],
         [
             InlineKeyboardButton("📋 Queue", callback_data=f"mp:{chat_id}:queue"),
@@ -844,10 +844,10 @@ async def _enqueue(update: Update, context, mode="auto"):
         source_message_id = source.message_id
 
     if mode == "video" and kind != "video":
-        await message.reply_text("❌ /video يجب أن يكون ردًا على فيديو.")
+        await message.reply_text("❌ ردّ على فيديو أو أرسل /video مع رابط فيديو مدعوم.")
         return
 
-    # /audio accepts audio files directly and extracts audio from videos/YouTube.
+    # /audio accepts audio files directly and extracts audio from supported video URLs.
     if mode == "audio" and kind not in {"audio", "video"}:
         await message.reply_text("❌ /audio يحتاج ملفًا صوتيًا أو فيديو.")
         return
@@ -1210,10 +1210,17 @@ async def _callback_handler(update, context):
     action = parts[2]
 
     if action == "hide":
+        # Hide the whole player card, and stop tracking it so later cleanup
+        # does not repeatedly try to delete a message the user hid.
         try:
-            await query.edit_message_reply_markup(reply_markup=None)
+            if query.message:
+                _state(target_chat_id).status_messages.discard(query.message.message_id)
+                await query.message.delete()
         except Exception:
-            pass
+            try:
+                await query.edit_message_reply_markup(reply_markup=None)
+            except Exception:
+                pass
         return
 
     if action == "forward10":
