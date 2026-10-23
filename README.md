@@ -14,9 +14,9 @@ The assistant account must be able to join the target group call. The bot must b
 
 ## Commands
 
-- `/play`: play replied-to audio/video, or a supported YouTube URL.
-- `/audio`: audio-only playback; reply to a Telegram media message or provide a supported YouTube URL.
-- `/video`: video playback; reply to a Telegram media message or provide a supported YouTube URL.
+- `/play`: play replied-to audio/video, or a supported public media URL handled by yt-dlp.
+- `/audio`: audio-only playback; reply to a Telegram media message or provide a supported media URL.
+- `/video`: video playback; reply to a Telegram media message or provide a supported media URL, including direct video and compatible HLS/M3U8 links.
 - `/pause`, `/resume`: pause/resume.
 - `/skip`: skip the current item.
 - `/stop`, `/leave`, Arabic `انهاء` or `إنهاء`: stop playback, clear the queue, and leave the call.
@@ -34,7 +34,7 @@ Create a service from this repository and deploy with the included Dockerfile. A
 
 ## Important limitations
 
-- YouTube playback depends on yt-dlp and YouTube's current access rules; sign-in challenges or blocked media may prevent downloads.
+- URL playback depends on yt-dlp extractors and each source site's current access rules; unsupported sites, sign-in challenges, expiring links, or blocked media may prevent downloads.
 - The player downloads media before playback rather than streaming while downloading.
 - Queue/player state is in memory and is reset when the service restarts.
 - Telegram group-call playback requires a valid assistant session and an active/available call. This repository does not guarantee that every Telegram group or media URL will work.
