@@ -26,6 +26,7 @@ import shutil
 import tempfile
 from collections import deque
 from dataclasses import dataclass, field
+from html import escape as html_escape
 from pathlib import Path
 from typing import Optional
 
@@ -601,11 +602,14 @@ async def _send_status(chat_id: int, text: str, thread_id: Optional[int] = None,
 
 async def _send_now_playing(chat_id: int, item: MediaItem):
     icon = "🎬" if item.kind == "video" and not item.audio_only else "🎵"
+    safe_title = html_escape(item.title)
     text = (
         f"{icon} <b>Now Playing</b>\n\n"
-        f"• {item.title}\n"
+        f"• {safe_title}\n"
         f"• {'Video' if item.kind == 'video' and not item.audio_only else 'Audio'}"
     )
+    # Remove transient notices before showing the single player card.
+    await _delete_status_messages(chat_id)
     await _send_status(chat_id, text, item.thread_id, _buttons(chat_id))
 
 
@@ -890,7 +894,7 @@ async def _enqueue(update: Update, context, mode="auto"):
             await _delete_status_messages(chat_id)
             await _send_status(
                 chat_id,
-                f"▶️ Starting: <b>{title}</b>",
+                f"▶️ Starting: <b>{html_escape(title)}</b>",
                 thread_id,
             )
 
@@ -905,7 +909,7 @@ async def _enqueue(update: Update, context, mode="auto"):
         s.queue.append(item)
         await _send_status(
             chat_id,
-            f"➕ Added to queue:\n<b>{title}</b>\n📍 Position: {len(s.queue)}",
+            f"➕ Added to queue:\n<b>{html_escape(title)}</b>\n📍 Position: {len(s.queue)}",
             thread_id,
         )
 
@@ -1023,12 +1027,11 @@ async def skip_handler(update, context):
         if s.queue:
             started = await _start_current(chat_id)
             if started:
-                await _send_status(chat_id, "⏭ Skipped.")
+                # _start_current publishes the new Now Playing card.
                 return
 
         await _send_status(chat_id, "⏭ Skipped. Queue is empty.")
         await _safe_leave(chat_id)
-        await _delete_status_messages(chat_id)
 
 
 async def stop_handler(update, context):
@@ -1059,8 +1062,8 @@ async def stop_handler(update, context):
         s.position = 0.0
         s.started_at = None
 
+        # Keep confirmation visible until the next status transition.
         await _send_status(chat_id, "⏹ Playback stopped and queue cleared.")
-        await _delete_status_messages(chat_id)
 
 
 async def leave_handler(update, context):
