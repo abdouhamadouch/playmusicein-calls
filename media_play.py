@@ -511,9 +511,14 @@ async def _download_item(item: MediaItem) -> str:
         except Exception:
             log.exception("MEDIA BOT API DOWNLOAD FAILED: chat=%s message=%s",
                           item.chat_id, item.message_id)
-            raise
+            await _cleanup_path(str(target))
+            if USER_CLIENT is None:
+                raise
+            # Telegram's hosted Bot API has a limited download size. Fall
+            # through to the assistant session for larger files or API errors.
+            log.info("MEDIA: retrying download through assistant session.")
 
-    # Backward-compatible fallback for items created without file_id.
+    # Fallback also supports media larger than the hosted Bot API download limit.
     if USER_CLIENT is None:
         raise RuntimeError("Assistant is not running.")
 
