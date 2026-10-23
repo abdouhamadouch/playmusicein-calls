@@ -77,7 +77,7 @@ OWNER_ID: Optional[int] = int(OWNER_ID_RAW) if OWNER_ID_RAW.isdigit() else None
 
 MAX_QUEUE = 50
 MESSAGE_TIMEOUT = 30
-DOWNLOAD_TIMEOUT = 180
+DOWNLOAD_TIMEOUT = 900
 PLAY_TIMEOUT = 60
 SEEK_STEP = 10
 
@@ -759,9 +759,7 @@ async def _seek_handler(update, context, delta: int):
         target = max(0.0, current + delta)
         ok, text = await _restart_current_at(chat_id, target)
 
-        if ok:
-            await _send_status(chat_id, text, s.current.thread_id if s.current else None)
-        else:
+        if not ok:
             await message.reply_text(text)
 
 
