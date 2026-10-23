@@ -825,8 +825,9 @@ async def _enqueue(update: Update, context, mode="auto"):
         await message.reply_text("❌ /video يجب أن يكون ردًا على فيديو.")
         return
 
-    if mode == "audio" and kind != "video":
-        await message.reply_text("❌ /audio هنا مخصص لتشغيل الفيديو كصوت فقط.")
+    # /audio accepts audio files directly and extracts audio from videos/YouTube.
+    if mode == "audio" and kind not in {"audio", "video"}:
+        await message.reply_text("❌ /audio يحتاج ملفًا صوتيًا أو فيديو.")
         return
 
     audio_only = mode == "audio"
