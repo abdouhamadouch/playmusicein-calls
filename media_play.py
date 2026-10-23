@@ -19,7 +19,9 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import ipaddress
 import logging
+import re
 import os
 import random
 import shutil
@@ -29,6 +31,7 @@ from dataclasses import dataclass, field
 from html import escape as html_escape
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlsplit
 
 from pyrogram import Client
 
@@ -51,7 +54,6 @@ try:
     from pytgcalls import PyTgCalls
     from pytgcalls import filters as call_filters
     from pytgcalls.types import (
-        StreamEnded,
         MediaStream,
         AudioQuality,
         VideoQuality,
@@ -393,18 +395,28 @@ async def _safe_leave(chat_id: int):
                 log.warning("MEDIA: leave failed chat=%s error=%r", chat_id, exc)
 
 
-def _youtube_url(value: str) -> bool:
-    value = (value or "").strip().lower()
-    return value.startswith((
-        "https://www.youtube.com/",
-        "http://www.youtube.com/",
-        "https://youtube.com/",
-        "http://youtube.com/",
-        "https://youtu.be/",
-        "http://youtu.be/",
-        "https://m.youtube.com/",
-        "http://m.youtube.com/",
-    ))
+def _media_url(value: str) -> bool:
+    """Accept public HTTP(S) URLs supported by yt-dlp; reject local targets."""
+    value = (value or "").strip().strip("<>.,;!?)]}")
+    try:
+        parsed = urlsplit(value)
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+            return False
+        if parsed.username or parsed.password:
+            return False
+        host = parsed.hostname.rstrip(".").lower()
+        if host in {"localhost", "localhost.localdomain"} or host.endswith((".localhost", ".local", ".internal")):
+            return False
+        try:
+            address = ipaddress.ip_address(host)
+            if not address.is_global:
+                return False
+        except ValueError:
+            if "." not in host:
+                return False
+        return True
+    except (ValueError, UnicodeError):
+        return False
 
 
 def _url_from_command(update: Update) -> Optional[str]:
@@ -412,20 +424,21 @@ def _url_from_command(update: Update) -> Optional[str]:
     if not message:
         return None
     text = (message.text or message.caption or "").strip()
-    parts = text.split()
-    if len(parts) < 2:
-        return None
-    candidate = parts[1].strip().strip("<>")
-    return candidate if _youtube_url(candidate) else None
+    # Supports YouTube, direct MP4/WebM, HLS/M3U8, and other yt-dlp extractors.
+    for candidate in re.findall(r"https?://[^\s<>]+", text, flags=re.IGNORECASE):
+        candidate = candidate.rstrip(".,;!?)")
+        if _media_url(candidate):
+            return candidate
+    return None
 
 
-async def _download_youtube(item: MediaItem) -> str:
+async def _download_url(item: MediaItem) -> str:
     if not item.source_url:
-        raise RuntimeError("YouTube URL is missing.")
+        raise RuntimeError("Media URL is missing.")
     if yt_dlp is None:
         raise RuntimeError("yt-dlp is not installed. Add yt-dlp to requirements.txt.")
 
-    out_dir = TEMP_ROOT / "youtube"
+    out_dir = TEMP_ROOT / "urls"
     out_dir.mkdir(parents=True, exist_ok=True)
     prefix = f"yt_{item.chat_id}_{item.message_id}_{abs(hash(item.source_url)) % 10000000}"
     output = out_dir / f"{prefix}.%(ext)s"
@@ -481,7 +494,7 @@ async def _download_item(item: MediaItem) -> str:
     on the original message still containing playable media.
     """
     if item.source_url:
-        return await _download_youtube(item)
+        return await _download_url(item)
 
     if item.source_file_id and BOT_INSTANCE is not None:
         ext = ".bin"
