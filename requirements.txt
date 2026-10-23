@@ -1,0 +1,5 @@
+python-telegram-bot==22.8
+pyrogrammod
+py-tgcalls==3.0.0
+tgcrypto
+yt-dlp
